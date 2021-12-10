@@ -1,0 +1,51 @@
+version: "3"
+
+volumes:
+  postgres_data:
+    driver: local
+
+services:
+  kd-postgres:
+    image: postgres:12
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    volumes:
+      - .database:/var/lib/postgresql/data
+
+  kd-hasura:
+    image: hasura/graphql-engine:v2.0.10
+    restart: always
+    depends_on:
+      - kd-postgres
+    environment:
+      HASURA_GRAPHQL_CONSOLE_ASSETS_DIR: /srv/console-assets
+      HASURA_GRAPHQL_DATABASE_URL: postgres://keycloak:keycloak@kd-postgres:5432/keycloak
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true" # set to "false" to disable console
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
+      HASURA_GRAPHQL_ENABLE_TELEMETRY: "false"
+      HASURA_GRAPHQL_ENDPOINT: "http://kd-hasura:8080"
+      HASURA_GRAPHQL_ADMIN_SECRET: "2tVUKzKiqS/MsTo9idk7imRz2hrfHMXHx6YM+Cx98GNZKu+uu6BQx565rqPn9ZvbA8XratnnRMDC"
+    ports:
+      - "0.0.0.0:8080:8080"
+    volumes:
+      - ".hasura:/hasura-project"
+
+  kd-keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    depends_on:
+      - kd-hasura
+    environment:
+      DB_VENDOR: POSTGRES
+      DB_ADDR: kd-postgres
+      DB_DATABASE: keycloak
+      DB_USER: keycloak
+      DB_PASSWORD: keycloak
+      DB_SCHEMA: public
+      KEYCLOAK_USER: admin
+      KEYCLOAK_PASSWORD: admin
+      # Uncomment the line below if you want to specify JDBC parameters. The parameter below is just an example, and it shouldn't be used in production without knowledge. It is highly recommended that you read the PostgreSQL JDBC driver documentation in order to use it.
+      #JDBC_PARAMS: "ssl=true"
+    ports:
+      - 9090:9090
